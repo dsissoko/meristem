@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/meristem.png" alt="Meristem logo" width="260" />
+</p>
+
 # Meristem – Knowledge-first Agentic App Template
 
 ## Purpose
