@@ -1,9 +1,41 @@
 # Skill Presets
 
 This file is maintained by experts.  
-It defines recommended skill sets (“presets”) for common stacks.
+It defines recommended skill sets ("presets") for common stacks.
 
 Agents read it during **Step 2 – capabilities** described in `AGENTS.md`, before completing the list with additional skills discovered from the user context.
+
+---
+
+## spec-phase
+
+- **Match condition**
+  - Loaded when the user explicitly accepts the specification phase (Step 3 of `AGENTS.md`)
+  - Independent of the implementation stack — applies to any project type
+
+- **Description**
+  Structured specification phase: functional side (epics → user stories) and architecture side (C4 diagrams + Mermaid diagrams). Guides the agent through a dialogue-first, file-generation-second approach to produce `docs/specs/` content.
+
+- **Recommended skills**
+  - `deanpeters/epic-breakdown-advisor`
+    - Source: `https://github.com/deanpeters/Product-Manager-Skills`
+    - Path: `skills/deanpeters/epic-breakdown-advisor`
+    - Role: Break down epics into actionable user stories using Richard Lawrence's 9 splitting patterns. Applied after the spec tree is validated by the user.
+    - Iteration: `spec-phase`
+  - `softaworks/c4-architecture`
+    - Source: `https://github.com/softaworks/agent-toolkit`
+    - Path: `skills/softaworks/c4-architecture`
+    - Role: Generate C4 architecture diagrams (Context, Container, Component, Deployment) in Mermaid syntax. Used for the architecture side of the spec tree.
+    - Iteration: `spec-phase`
+  - `softaworks/mermaid-diagrams`
+    - Source: `https://github.com/softaworks/agent-toolkit`
+    - Path: `skills/softaworks/mermaid-diagrams`
+    - Role: General-purpose Mermaid diagram generation (sequence, ERD, flowchart, state, etc.). Complements c4-architecture for data models, flows, and any non-C4 diagrams needed in specs.
+    - Iteration: `spec-phase`
+  - `local/spec-to-site`
+    - Path: `skills/local/spec-to-site`
+    - Role: Generate a browsable static site from `docs/specs/` using docsify + Mermaid. Produces `docs/site/index.html` and `_sidebar.md`. Preview via `npx docsify-cli serve docs/site`. Node.js/npx only.
+    - Iteration: `spec-phase`
 
 ---
 
@@ -53,20 +85,20 @@ Agents read it during **Step 2 – capabilities** described in `AGENTS.md`, befo
     - Path: `skills/anthropics/frontend-design`  
     - Role: minimal, readable, production-grade frontend design.  
     - Iteration: `MVP`
-  - `openclaw/msw-skill`  
-    - Source: `https://github.com/openclaw/skills`  
-    - Path: `skills/openclaw/msw-skill`  
-    - Role: MSW v2 best practices for a clean mocked backend.  
+  - `openclaw/msw-skill`
+    - Source: `https://github.com/openclaw/skills` (path: `skills/anivar/msw-skill`)
+    - Path: `skills/openclaw/msw-skill`
+    - Role: MSW v2 best practices for a clean mocked backend.
     - Iteration: `MVP`
   - `anthropics/xlsx`  
     - Source: `https://github.com/anthropics/skills`  
     - Path: `skills/anthropics/xlsx`  
     - Role: Excel file generation/handling (todo list export).  
     - Iteration: `MVP`
-  - `wshobson/error-handling-patterns`  
-    - Source: `https://github.com/wshobson/agents`  
-    - Path: `skills/wshobson/error-handling-patterns`  
-    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.  
+  - `wshobson/error-handling-patterns`
+    - Source: `https://github.com/wshobson/agents` (path: `plugins/developer-essentials/skills/error-handling-patterns`)
+    - Path: `skills/wshobson/error-handling-patterns`
+    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.
     - Iteration: `MVP`
   - `anthropics/webapp-testing`  
     - Source: `https://github.com/anthropics/skills`  
@@ -137,20 +169,20 @@ Agents read it during **Step 2 – capabilities** described in `AGENTS.md`, befo
     - Path: `skills/anthropics/frontend-design`  
     - Role: minimal, readable, production-grade frontend design.  
     - Iteration: `MVP`
-  - `openclaw/msw-skill`  
-    - Source: `https://github.com/openclaw/skills`  
-    - Path: `skills/openclaw/msw-skill`  
-    - Role: MSW v2 best practices for a clean mocked backend.  
+  - `openclaw/msw-skill`
+    - Source: `https://github.com/openclaw/skills` (path: `skills/anivar/msw-skill`)
+    - Path: `skills/openclaw/msw-skill`
+    - Role: MSW v2 best practices for a clean mocked backend.
     - Iteration: `MVP`
   - `anthropics/xlsx`  
     - Source: `https://github.com/anthropics/skills`  
     - Path: `skills/anthropics/xlsx`  
     - Role: Excel file generation/handling (todo list export).  
     - Iteration: `MVP`
-  - `wshobson/error-handling-patterns`  
-    - Source: `https://github.com/wshobson/agents`  
-    - Path: `skills/wshobson/error-handling-patterns`  
-    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.  
+  - `wshobson/error-handling-patterns`
+    - Source: `https://github.com/wshobson/agents` (path: `plugins/developer-essentials/skills/error-handling-patterns`)
+    - Path: `skills/wshobson/error-handling-patterns`
+    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.
     - Iteration: `MVP`
   - `anthropics/webapp-testing`  
     - Source: `https://github.com/anthropics/skills`  
@@ -221,20 +253,20 @@ Agents read it during **Step 2 – capabilities** described in `AGENTS.md`, befo
     - Path: `skills/anthropics/frontend-design`  
     - Role: distinctive, production-grade frontend design with a clear aesthetic direction.  
     - Iteration: `MVP`
-  - `openclaw/msw-skill`  
-    - Source: `https://github.com/openclaw/skills`  
-    - Path: `skills/openclaw/msw-skill`  
-    - Role: MSW v2 best practices for a clean mocked backend.  
+  - `openclaw/msw-skill`
+    - Source: `https://github.com/openclaw/skills` (path: `skills/anivar/msw-skill`)
+    - Path: `skills/openclaw/msw-skill`
+    - Role: MSW v2 best practices for a clean mocked backend.
     - Iteration: `MVP`
   - `anthropics/xlsx`  
     - Source: `https://github.com/anthropics/skills`  
     - Path: `skills/anthropics/xlsx`  
     - Role: Excel file generation/handling (todo list export).  
     - Iteration: `MVP`
-  - `wshobson/error-handling-patterns`  
-    - Source: `https://github.com/wshobson/agents`  
-    - Path: `skills/wshobson/error-handling-patterns`  
-    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.  
+  - `wshobson/error-handling-patterns`
+    - Source: `https://github.com/wshobson/agents` (path: `plugins/developer-essentials/skills/error-handling-patterns`)
+    - Path: `skills/wshobson/error-handling-patterns`
+    - Role: Cross-language error handling patterns, including UI error boundaries and global handlers.
     - Iteration: `MVP`
   - `anthropics/webapp-testing`  
     - Source: `https://github.com/anthropics/skills`  

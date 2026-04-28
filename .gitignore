@@ -1,6 +1,17 @@
 # Local agent runtime state (Codex CLI, logs, sessions, cache)
 codex/
+tmp/
 
 # Codex CLI project marker (can be file or directory)
 .codex
 .codex/
+
+# Agent migration/personality files
+.personality_migration
+
+# Generated spec site (artifact, regenerated from docs/specs/)
+docs/site/
+
+# docsify server PID file and output (created when agent launches preview server)
+docs/.docsify.pid
+docs/.docsify-serve.out

@@ -1,7 +1,7 @@
 ---
 name: react-primer-github-style-ui
 source: local
-author: spec2code template
+author: meristem
 ---
 
 Local skill for GitHub-inspired layouts and theming using @primer/react components.

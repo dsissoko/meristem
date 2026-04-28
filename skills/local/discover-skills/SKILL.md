@@ -38,13 +38,22 @@ Identify and recommend relevant external skills based on a user request and repo
 3. **Search for complementary skills**
    - Look for additional candidate skills in trusted sources:
      - https://officialskills.sh/
-     - public GitHub repositories
-     - known skill collections
+     - https://github.com/VoltAgent/awesome-agent-skills (community registry)
+     - Verified GitHub repositories — confirmed sources used in this project:
+       - https://github.com/vercel-labs/agent-skills
+       - https://github.com/anthropics/skills
+       - https://github.com/openclaw/skills (skill path prefix: `skills/anivar/`)
+       - https://github.com/wshobson/agents (skill path prefix: `plugins/developer-essentials/skills/`)
+       - https://github.com/deanpeters/Product-Manager-Skills (skill path prefix: `skills/`)
+       - https://github.com/softaworks/agent-toolkit (skill path prefix: `skills/`)
+       - https://skillkit.io/skills/claude-code/ (bas/ skills)
+       - https://skillsmp.com/skills/ (bagustris/ skills)
    - For each candidate, identify:
      - name
      - source
      - short description
      - scope
+   - **Always verify** that the SKILL.md exists at the resolved URL before recommending a skill
 
 4. **Evaluate overall relevance**
    - For each skill (from the preset or discovered), evaluate:

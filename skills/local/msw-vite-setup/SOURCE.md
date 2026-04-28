@@ -1,7 +1,7 @@
 ---
 name: msw-vite-setup
 source: local
-author: spec2code template
+author: meristem
 ---
 
 Local skill describing how to wire MSW v2 into a Vite-powered React frontend.
