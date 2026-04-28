@@ -33,6 +33,7 @@ skills = capabilities
 
 Raw template (before first use):
 
+```txt
 .
 ├── AGENTS.md  
 ├── README.md  
@@ -41,9 +42,10 @@ Raw template (before first use):
     │   ├── discover-skills/  
     │   └── init-product-knowledge/  
     └── skills-presets.md  
+```
 
 Target layout after the first initialization of a concrete application (artifacts created by the agent):
-
+```txt
 .
 ├── AGENTS.md  
 ├── business.md  
@@ -56,6 +58,7 @@ Target layout after the first initialization of a concrete application (artifact
 │   │   └── init-product-knowledge/  
 │   └── skills.lock.md  
 └── README.md  
+```
 
 ---
 
