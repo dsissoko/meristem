@@ -1,0 +1,6 @@
+# Local agent runtime state (Codex CLI, logs, sessions, cache)
+codex/
+
+# Codex CLI project marker (can be file or directory)
+.codex
+.codex/
