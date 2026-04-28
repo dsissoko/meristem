@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./meristem-image.png" alt="Meristem logo" width="260" />
+  <img src="./meristem-image.png" alt="Meristem logo" width="450" />
 </p>
 
 # Meristem – Knowledge-first Agentic App Template
