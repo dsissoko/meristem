@@ -8,6 +8,18 @@ It provides:
 - explicit product knowledge
 - reusable skills
 
+## Multi-Agent Compatibility
+
+This repo supports multiple agent runtimes. Each reads its own instruction file:
+
+| Agent | Instruction file |
+|-------|-----------------|
+| OpenCode, Claude Code, Codex CLI | `AGENTS.md` (this file) |
+| OpenHands | `.openhands/microagents/repo.md` |
+
+Both files encode the same Meristem process and must be kept in sync manually.
+When updating the process in `AGENTS.md`, apply the equivalent changes to `.openhands/microagents/repo.md`.
+
 The agent must rely on both to operate correctly.
 
 ---
@@ -48,6 +60,67 @@ Order of precedence:
 
 ---
 
+## Autonomous Mode — Issue Qualification (OpenCode only)
+
+> **OpenHands:** skip this section. OpenHands operates in implementation mode only.
+
+When OpenCode is triggered by a GitHub issue (via the GitHub Actions workflow), it must **first qualify the nature of the request** before taking any action.
+
+### Qualification logic
+
+Read the issue title and body carefully, then apply this decision tree:
+
+**Is the issue a request for code generation or software modification?**
+
+Signals that indicate YES:
+- mentions of features, bugs, refactoring, implementation, or technical changes
+- references to files, components, APIs, or the codebase
+- action verbs: implement, fix, add, remove, refactor, create, update (in a technical context)
+
+Signals that indicate NO:
+- questions, explanations, documentation requests, process discussions
+- no reference to code or technical artifacts
+- purely informational or organizational
+
+---
+
+### If the issue is NOT a code request
+
+Handle it directly:
+- Answer the question or provide the explanation in a PR comment
+- Do **not** propose spec or implementation choices
+- Do **not** open a PR unless explicitly asked
+
+---
+
+### If the issue IS a code request
+
+Post a comment on the issue proposing exactly **two options**:
+
+```
+I have analyzed this issue. Before proceeding, please choose one of the following:
+
+**Option A — Direct implementation**
+I will implement the feature directly based on `business.md`, `architecture.md`,
+and existing specs in `docs/specs/`. No new spec files will be created.
+
+**Option B — Specification first**
+I will first produce or update the relevant spec files in `docs/specs/`
+(epic + user stories), then wait for your validation before implementing.
+
+Reply with **A** or **B** to continue.
+```
+
+**Wait for the user's reply before doing anything else.**
+
+Rules:
+- Never start implementation or spec writing before receiving the user's choice
+- If the user replies with **A**, proceed directly to Step 4 (Implementation)
+- If the user replies with **B**, proceed to Step 3 (Specification phase)
+- If the reply is ambiguous, ask for clarification — do not guess
+
+---
+
 ## Mandatory Checklist Before Any Implementation
 
 Before creating or modifying **any** of the following:
@@ -82,6 +155,8 @@ the agent **must** follow these steps in order:
 
 ### Step 2 – Discover and load skills
 
+> **OpenHands:** skip this step. Skills are already locked in `skills/skills.lock.md`.
+
 Once `business.md` and `architecture.md` are validated, and **before** anything else:
 
 1. **Apply skill presets (sub-step 2a – default baseline)**
@@ -110,6 +185,8 @@ Once `business.md` and `architecture.md` are validated, and **before** anything 
 ---
 
 ### Step 3 – Propose a specification phase (optional but always offered)
+
+> **OpenHands:** skip this step. Proceed directly to Step 4.
 
 Once skills are loaded, **explicitly ask the user** whether they want a structured specification phase before implementation.
 
@@ -217,23 +294,23 @@ Resume implementation only when:
 - the specification phase has been explicitly accepted or declined by the user,
 - and `skills/skills.lock.md` is up to date.
 
+If specs already exist in `docs/specs/`, the agent must read them before implementing anything.
+
 ---
 
 ### Step 5 – Post-implementation validation (build, runtime sanity & E2E)
 
+> **OpenCode (GitHub Actions mode):** skip this step. Build and test validation is handled by the `validate` job in the CI workflow.
+
 After completing any **significant implementation** on application code (frontend or backend), the agent must:
-- identify one or more **minimal automated checks** for the current stack (for example: a bundler build + a runtime smoke test), and
+- read the locked skills to identify the build and test commands for the current stack,
 - attempt to run them automatically. Continue unless a check fails.
 
-For the React + Vite SPA described in `architecture.md`, when a React + Primer preset is used (for example `react-primer-spa` or `react-primer-spa-github-style`), the agent must:
-- rely on the `local/frontend-runtime-sanity` skill to configure and run the "build + runtime smoke test" under `frontend/`,
-- rely on the `anthropics/webapp-testing` and `local/frontend-e2e-sanity` skills for browser-based E2E smoke checks.
-
-The **concrete commands** to run for this stack are defined by these skills and must be followed strictly.
+The concrete commands to run are defined by the relevant locked skills and must be followed strictly.
 
 If any check fails, the agent must either:
 - fix the underlying issue and rerun the checks until they pass, or
-- explicitly report the failure and the reason it cannot be resolved within the current iteration. When E2E checks cannot be run due to environment restrictions, the agent must clearly state this and provide the exact commands or CI configuration needed to run them externally.
+- explicitly report the failure and the reason it cannot be resolved within the current iteration. When checks cannot be run due to environment restrictions, the agent must clearly state this and provide the exact commands or CI configuration needed to run them externally.
 
 ---
 
@@ -254,18 +331,13 @@ When a task requires specific capabilities:
    - read its `SKILL.md`
    - apply instructions strictly
 
-Available local skills:
+Available local skills (Meristem core):
 - `local/discover-skills` — find and recommend external skills
 - `local/init-product-knowledge` — initialize `business.md`, `architecture.md`, `docs/specs/`
-- `local/monorepo-simple-structure` — minimal monorepo layout
-- `local/react-primer-feature-architecture` — feature-based architecture for React + Primer
-- `local/frontend-runtime-sanity` — build + runtime smoke test setup
-- `local/primer-vitest-runtime` — Vitest setup for Primer/React
-- `local/frontend-e2e-sanity` — Playwright E2E smoke checks
-- `local/app-first-gen-safety` — startup and error boundary for first app generation
-- `local/vite-react-agent-cookbook` — Vite + React scaffolding without interactive prompts
-- `local/spec-to-site` — generate a navigable docsify site from `docs/specs/` with Mermaid rendering
 - `local/skills-health-check` — check filesystem integrity and source availability of all installed skills
+- `local/spec-to-site` — generate a navigable docsify site from `docs/specs/` with Mermaid rendering
+
+Additional skills are installed per project in `skills/skills.lock.md` and must be read from there.
 
 ---
 
@@ -322,21 +394,12 @@ This must ensure the presence of:
 
 When a task requires an external runtime or CLI:
 
-- Use **npm/npx** as the primary method for JavaScript/Node.js tools (Playwright, Vitest, etc.)
-- Prefer installing tools via `npm install -D <package>` rather than global installs
-- Use `npx` to run tools without installing them globally
+- Use the package manager defined in `architecture.md` or the locked skills
+- Prefer local installations over global ones
+- Use the project's existing toolchain — do not introduce new tools without validating against `architecture.md`
+- If a required tool is unavailable in the execution environment, report it explicitly and provide the equivalent commands or CI configuration
 
-For this template and environment:
-
-- Always prefer a **local npm cache** at project level:
-  - use `npm install --cache .npm-cache` dans les dossiers applicatifs (par ex. `frontend/`),
-  - ou configurer un `.npmrc` local avec `cache = .npm-cache`.
-- Ne jamais supposer que le cache global npm (`~/.npm/_cacache`) est disponible en écriture.
-- Ne jamais supposer que Python ou des scripts auxiliaires existent parce qu’un SKILL en parle :
-  - vérifier leur présence avec `ls` ou `find`,
-  - si un script référencé est absent, appliquer le fallback prévu par le SKILL local (ou le documenter dans `docs/specs/`) au lieu de “deviner” une solution.
-
-If npm/npx is not available, the agent must explicitly report the limitation.
+If the execution environment restricts tool installation, the agent must clearly state this limitation.
 
 ---
 
@@ -347,7 +410,7 @@ If npm/npx is not available, the agent must explicitly report the limitation.
 - Only verifiable sources
 - Prefer clarity over creativity
 
-When modifying fichiers scaffold générés par des outils (templates Vite, config initiale, etc.) :
+When modifying files generated by scaffolding tools (initial templates, generated configs, etc.):
 
-- si l’intention est de **remplacer entièrement** le contenu, préférer un patch de type “Delete + Add” plutôt qu’une mise à jour partielle fragile,
-- éviter les diffs complexes sur de très gros fichiers générés automatiquement quand une réécriture complète est plus simple et plus lisible.
+- if the intent is to **fully replace** the content, prefer a "Delete + Add" patch over a fragile partial update,
+- avoid complex diffs on large auto-generated files when a full rewrite is simpler and more readable.

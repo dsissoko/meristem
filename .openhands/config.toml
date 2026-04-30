@@ -1,0 +1,5 @@
+[core]
+max_iterations = 100
+
+[agent]
+name = "CodeActAgent"

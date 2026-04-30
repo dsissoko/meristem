@@ -1,4 +1,8 @@
-# skills/local/init-product-knowledge/SKILL.md
+---
+name: init-product-knowledge
+description: Initialize business.md, architecture.md and docs/specs/ structure in a Meristem repo
+compatibility: opencode
+---
 
 ## Objective
 

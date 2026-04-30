@@ -47,3 +47,9 @@ Loaded when the user accepts the specification phase (Step 3 of `AGENTS.md`).
 | `local/spec-to-site` | `skills/local/spec-to-site` | local | spec-phase |
 | `local/skills-health-check` | `skills/local/skills-health-check` | local | core |
 
+## Installed skills — review
+
+| Skill | Path | Source | Iteration |
+|-------|------|--------|-----------|
+| `getsentry/code-review` | `skills/getsentry/code-review` | https://github.com/getsentry/skills | review |
+
