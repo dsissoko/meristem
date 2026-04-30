@@ -88,8 +88,16 @@ The lock is updated by the agent when new skills are downloaded or when a new it
 
 ---
 
-## Positioning
+## What's Next
 
-This repository is not a framework, a boilerplate, or a code generator.
+### GitHub / GitLab integration
 
-It is a minimal foundation for agent-driven software development.
+A reference implementation with GitHub Actions workflows for autonomous agent triggering, PR preview, and build validation. See [meristem-test](https://github.com/dsissoko/meristem-test).
+
+### Collaborative app generation experiment
+
+A public repo built on Meristem where anyone can open an issue, trigger an agent with a free LLM, and watch their feature land in a PR — no local setup, no contribution workflow to learn. Just describe, and the agent builds.
+
+### More presets
+
+Community-contributed skill presets for common stacks: Vue, Svelte, Python/FastAPI, mobile, and more.
