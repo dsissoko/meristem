@@ -11,6 +11,13 @@ It is a structured environment where agents operate based on explicit product kn
 
 ---
 
+## Why Meristem?
+
+In plants, the meristem is the tissue where growth starts.
+This repository plays a similar role: a small, structured core of knowledge from which agents can generate and evolve entire applications.
+
+---
+
 ## Quick Start
 
 ```bash
