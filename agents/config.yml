@@ -1,0 +1,44 @@
+aliases:
+  my-dev: dev
+  my-qa: qa
+  my-po: po
+  my-archi: architect
+
+roles:
+  - agent
+  - dev
+  - qa
+  - po
+  - analyst
+  - architect
+  - help
+
+autonomous_mode: false
+
+runner_mode: anomalyco  # anomalyco | generic-cli
+
+max_comments: 10
+loop_max_invocations: 3
+loop_diff_threshold: 20
+
+# Configuration des agents — une entrée par agent
+# Chaque entrée est convertie en fichier de config au moment du run
+agent_config:
+  opencode:
+    $schema: "https://opencode.ai/config.json"
+    # Modèles disponibles via OpenCode Zen (opencode.ai/auth) :
+    # opencode/claude-haiku-4-5       — rapide, économique
+    # opencode/claude-sonnet-4-6      — plus puissant
+    # opencode/minimax-m2.5-free      — gratuit
+    # opencode/gpt-5.4-mini           — OpenAI mini
+    # opencode/qwen3.5-plus           — Qwen
+    # anthropic/claude-haiku-3-5      — Anthropic direct (nécessite ANTHROPIC_API_KEY)
+    # deepseek/deepseek-chat          — DeepSeek
+    model: "opencode/minimax-m2.5-free"
+    small_model: "opencode/minimax-m2.5-free"
+    share: "disabled"
+    autoupdate: false
+    disabled_providers:
+      - openai
+      - gemini
+      - anthropic

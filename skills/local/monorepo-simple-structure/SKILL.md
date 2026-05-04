@@ -59,7 +59,7 @@ Once the monorepo structure is in place, the target layout is:
 
 ### Key points
 
-- `frontend/` contains **all frontend code** (e.g. the test-seed React app).
+- `frontend/` contains **all frontend code** (e.g. a React SPA).
 - `backend/` is **reserved** for a future backend (API, services, etc.), even if initially empty.
 - `docs/specs/` remains the **only** place for detailed specs (no extra `/specs/` at repo root).
 - Root `AGENTS.md` stays the global reference; `AGENTS.md` under `frontend/` or `backend/` may refine rules **without contradicting** the root.

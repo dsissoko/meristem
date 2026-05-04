@@ -18,6 +18,23 @@ This repository plays a similar role: a small, structured core of knowledge from
 
 ---
 
+## How it works
+
+Meristem runs on GitHub Actions. Specialized agents are invoked by a simple comment on any issue or PR:
+
+```
+/dev add a welcome footer
+/po initialize the project board
+/qa review this PR
+/architect what is the current architecture?
+```
+
+Each agent knows its role, loads the skills it needs, and acts — or responds — directly in the thread. The process emerges from agent interactions. Nothing is hardcoded in a central file.
+
+Agents available out of the box: `/agent` (generalist), `/dev`, `/qa`, `/po`, `/analyst`, `/architect`, `/help`.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -25,86 +42,65 @@ git clone https://github.com/dsissoko/meristem.git my-app
 cd my-app
 ```
 
-Launch your agent (OpenCode, Claude Code, Codex CLI, OpenHands...) and start talking:
+Configure the required secrets in GitHub Settings → Secrets → Actions:
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `OPENCODE_API_KEY` | ✅ | OpenCode API key — [opencode.ai/auth](https://opencode.ai/auth) |
+| `SCRUM_PROJECT_TOKEN` | ⬜ | GitHub PAT with `project` scope — for Scrum board initialization |
+
+Open an issue and invoke an agent:
 
 ```
-I want to build a task manager. React + Primer frontend, mocked backend.
+/po I want to build a task manager. React + Primer frontend, mocked backend.
 ```
 
 The agent reads `AGENTS.md`, loads the Meristem process, and guides you from there.
-No manual setup required — the agent handles everything.
+No manual setup required.
 
 ---
 
 ## Structure
 
-```txt
+```
 .
-├── AGENTS.md                        ← agent process and rules
+├── AGENTS.md                        ← agent entry point — process and rules
+├── agents/                          ← agent profiles and configuration
+│   ├── config.yml                   ← active roles, runner mode, model
+│   └── <role>/profile.md            ← role identity, skills, routing rules
+├── skills/
+│   ├── skills-set.md                ← skill sets per role
+│   └── local/                       ← core and project skills
+├── .github/workflows/               ← dispatcher, runners, CI/CD
 ├── .opencode/skills/                ← skill bootstrap for OpenCode
 ├── .claude/skills/                  ← skill bootstrap for Claude Code
 ├── .gemini/skills/                  ← skill bootstrap for Gemini
 ├── .agents/skills/                  ← skill bootstrap for generic agents
-├── .openhands/microagents/repo.md   ← OpenHands instructions
-└── skills/
-    ├── local/
-    │   ├── discover-skills/
-    │   ├── init-product-knowledge/
-    │   ├── skills-health-check/
-    │   └── spec-to-site/
-    └── skills-presets.md
+└── .openhands/microagents/repo.md   ← OpenHands instructions
 ```
 
-After first use, the agent creates `business.md`, `architecture.md`, `docs/specs/`, and `skills/skills.lock.md`.
+After first use, the agent creates `business.md`, `architecture.md`, and `docs/specs/`.
 
 ---
 
-## Skill Management
+## Skills
 
-Skills are loaded automatically — the agent discovers them via the bootstrap skill in its native directory. No manual loading required.
+Skills are reusable instruction sets that agents load on demand. Meristem ships with a curated library covering common needs: GitHub context, PR workflow, product knowledge initialization, Scrum project setup, C4 architecture diagrams, frontend stacks, and more.
 
-### Core skills
+Skills are organized in sets by role — `/dev` loads technical skills, `/po` loads product skills, `/architect` loads architecture and C4 diagramming skills. When starting a new project, the agent proposes a matching set based on your stack. You validate before anything is applied.
 
-Four skills are always available out of the box:
-
-| Skill | What it does |
-|-------|-------------|
-| `init-product-knowledge` | Creates `business.md`, `architecture.md`, `docs/specs/` |
-| `discover-skills` | Finds and recommends external skills for your stack |
-| `skills-health-check` | Verifies integrity of all installed skills |
-| `spec-to-site` | Generates a navigable site from `docs/specs/` |
-
-### Presets
-
-`skills/skills-presets.md` contains curated skill baselines for common stacks.
-Presets are **user-managed** — you define them, enrich them over time, and share them across projects.
-The agent proposes a matching preset based on your stack; you validate before anything is applied.
-
-Meristem ships with a few example presets (e.g. `react-primer-spa`). Add your own as your practice evolves.
-
-### Lock
-
-Once skills are selected and validated, they are locked in `skills/skills.lock.md`.
-
-The lock file:
-- records the exact set of installed skills, their source, and their iteration (MVP, spec-phase, etc.)
-- is the **single source of truth** for the agent — it reads this file before any task
-- ensures reproducibility across sessions, agents, and team members
-
-The lock is updated by the agent when new skills are downloaded or when a new iteration starts.
+New skills can be added at any time — from the community or written for your project — without modifying the framework.
 
 ---
 
 ## What's Next
 
-### GitHub / GitLab integration
+- **Autonomous mode** — agents chain themselves without human validation between steps, implemented and ready to test
+- **MCP sandbox enrichment** — equip agents with MCP servers (GitHub, documentation search, Playwright) before execution
+- **More skill sets** — community-contributed sets for Vue, Svelte, Python/FastAPI, mobile, and more
+- **Collaborative experiment** — a public repo where anyone can open an issue, trigger a free-model agent, and watch their feature land in a PR
 
-A reference implementation with GitHub Actions workflows for autonomous agent triggering, PR preview, and build validation. See [meristem-test](https://github.com/dsissoko/meristem-test).
+---
 
-### Collaborative app generation experiment
-
-A public repo built on Meristem where anyone can open an issue, trigger an agent with a free LLM, and watch their feature land in a PR — no local setup, no contribution workflow to learn. Just describe, and the agent builds.
-
-### More presets
-
-Community-contributed skill presets for common stacks: Vue, Svelte, Python/FastAPI, mobile, and more.
+> Contributions welcome — skills, presets, agent profiles, and workflow improvements.
+> See [meristem-test](https://github.com/dsissoko/meristem-test) for a live demonstration.

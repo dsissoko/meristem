@@ -1,0 +1,70 @@
+name: init-project
+
+on:
+  workflow_dispatch:
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify business.md and architecture.md
+        run: |
+          echo "=== Checking knowledge files ==="
+          ERRORS=0
+
+          for FILE in business.md architecture.md; do
+            if [ ! -f "$FILE" ]; then
+              echo "ERROR: $FILE is missing."
+              ERRORS=$((ERRORS + 1))
+            elif [ ! -s "$FILE" ]; then
+              echo "ERROR: $FILE is empty."
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "OK: $FILE exists and is not empty."
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "Cannot initialize project: knowledge files are missing or empty."
+            echo "Create business.md and architecture.md before running this workflow."
+            exit 1
+          fi
+
+      - name: Verify skills-set.md
+        run: |
+          if [ ! -f "skills/skills-set.md" ]; then
+            echo "WARNING: skills/skills-set.md is missing. Create it before running agents."
+          else
+            echo "OK: skills/skills-set.md exists."
+          fi
+
+      - name: Create agents/ structure if absent
+        run: |
+          if [ ! -f "agents/config.yml" ]; then
+            echo "WARNING: agents/config.yml is missing. Create it before running agents."
+          else
+            echo "OK: agents/config.yml exists."
+          fi
+
+          for ROLE in agent dev qa po analyst architect help; do
+            if [ ! -f "agents/${ROLE}/profile.md" ]; then
+              echo "WARNING: agents/${ROLE}/profile.md is missing."
+            else
+              echo "OK: agents/${ROLE}/profile.md exists."
+            fi
+          done
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "=== Project initialization complete ==="
+          echo "business.md : $([ -f business.md ] && echo 'OK' || echo 'MISSING')"
+          echo "architecture.md : $([ -f architecture.md ] && echo 'OK' || echo 'MISSING')"
+          echo "agents/config.yml : $([ -f agents/config.yml ] && echo 'OK' || echo 'MISSING')"
+          echo "skills/skills-set.md : $([ -f skills/skills-set.md ] && echo 'OK' || echo 'MISSING')"

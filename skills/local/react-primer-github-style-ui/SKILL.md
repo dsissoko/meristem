@@ -22,7 +22,7 @@ Ce skill complète :
 - `bagustris/primer-style` (polish des UIs Primer),
 - `anthropics/frontend-design` (direction esthétique).
 
-Il est **spécifique au repo** et à la V0 de *test-seed*.
+Il est **spécifique au stack** React + Primer + GitHub-style.
 
 ## Pré-requis
 
@@ -30,7 +30,7 @@ Il est **spécifique au repo** et à la V0 de *test-seed*.
 - Déjà en place :
   - `@primer/react` installé,
   - `@tanstack/react-query` + MSW,
-  - feature `theme` (skins + color mode) et feature `todos`.
+  - feature `theme` (skins + color mode) et les features métier du projet.
 - Ajouter si nécessaire :
   - `@primer/octicons-react` (icônes GitHub),
   - un petit module de tokens de layout, par ex. `frontend/src/theme/tokens.ts`.
@@ -39,7 +39,7 @@ Il est **spécifique au repo** et à la V0 de *test-seed*.
 
 - **Topbar** :
   - bandeau horizontal en haut avec :
-    - à gauche : icône GitHub (`MarkGithubIcon`) + nom d’app (`test-seed`),
+    - à gauche : icône GitHub (`MarkGithubIcon`) + nom d’app,
     - à droite : switcher de skin + bouton dark/light.
 - **Layout de page** :
   - `PageLayout` :
@@ -52,7 +52,7 @@ Il est **spécifique au repo** et à la V0 de *test-seed*.
     - fond subtil (`var(--bg-subtle)`),
     - bordure `var(--border)`,
     - rayon (8px) + padding cohérent,
-    - sert à encapsuler formulaire + liste de todos.
+    - sert à encapsuler le contenu métier du projet.
 - **Responsive** :
   - layout en colonne,
   - largeur max contrôlée par les tokens,
@@ -83,13 +83,10 @@ Il est **spécifique au repo** et à la V0 de *test-seed*.
        - bloc `topbar-actions` avec `ThemeSkinSwitcher`.
      - envelopper le contenu principal dans `PageLayout`.
 
-4. **Page Todos**
-   - Dans `src/features/todos/ui/TodoListPage.tsx` :
-     - remplacer la structure brute par :
-       - un `Stack` qui contient deux `Panel` :
-         - panel “Nouvelle todo” avec formulaire,
-         - panel “Mes todos” avec liste + `TodoExportButton`.
-     - laisser la logique (hooks `useTodos`, view-model, API) inchangée.
+4. **Feature pages**
+   - Dans les pages features du projet :
+      - remplacer la structure brute par des `Stack` et `Panel` selon les besoins métier.
+      - laisser la logique (hooks, view-model, API) inchangée.
 
 5. **Thème & skins**
    - S’appuyer sur la feature `theme` existante :

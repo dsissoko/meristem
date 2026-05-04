@@ -1,6 +1,6 @@
 ---
 name: primer-vitest-runtime
-description: Bridge React + Primer with Vitest runtime smoke tests in this template, reusing frontend-runtime-sanity while keeping tests robust when @primer/react imports CSS.
+description: Bridge React + Primer with Vitest runtime smoke tests, reusing frontend-runtime-sanity while keeping tests robust when @primer/react imports CSS.
 ---
 
 # Primer + Vitest Runtime Sanity
@@ -8,14 +8,14 @@ description: Bridge React + Primer with Vitest runtime smoke tests in this templ
 ## Objective
 
 Provide a **repeatable way** to combine:
-- React + Vite frontend using `@primer/react` (Primer), and
+- A React + Vite frontend using `@primer/react` (Primer), and
 - the Vitest-based runtime smoke test described in `local/frontend-runtime-sanity`,
 
 so that:
-- the app can freely use Primer in runtime code, and  
-- the **runtime smoke test** stays simple and stable, sans être bloqué par les imports CSS internes d’`@primer/react`.
+- the app can freely use Primer in runtime code, and
+- the **runtime smoke test** stays simple and stable, without being blocked by `@primer/react` internal CSS imports.
 
-This skill does **not** replace `frontend-runtime-sanity`, it **specializes** it for the React + Primer stack described by the `react-primer-spa` preset.
+This skill does **not** replace `frontend-runtime-sanity` — it **specializes** it for the React + Primer stack.
 
 ---
 
@@ -23,45 +23,45 @@ This skill does **not** replace `frontend-runtime-sanity`, it **specializes** it
 
 - Stack: React + `@primer/react` + Vite + TypeScript.
 - Tests: Vitest + Testing Library (`test:smoke`), JSDOM environment.
-- Focus: interaction entre `@primer/react` (design system) et Vitest en environnement Node.
+- Focus: interaction between `@primer/react` (design system) and Vitest in a Node environment.
 
 Out of scope:
-- E2E tests (couverts par `frontend-e2e-sanity` + `anthropics/webapp-testing`),
-- MSW configuration (couverte par `msw-skill` + `msw-vite-setup`),
-- architecture globale (couverte par `react-primer-feature-architecture`).
+- E2E tests (covered by `frontend-e2e-sanity` + `anthropics/webapp-testing`),
+- MSW configuration (covered by `msw-skill` + `msw-vite-setup`),
+- global architecture (covered by `react-primer-feature-architecture`).
 
 ---
 
 ## Core Principles
 
-1. **HTML pour le layout, Primer pour les contrôles**  
-   - Respecter `bas/primer-design` :  
-     - layout global et structure → HTML + CSS du projet,  
-     - contrôles interactifs (boutons, inputs, labels de statut, spinners) → `@primer/react`.
+1. **HTML for layout, Primer for controls**
+   - Follow `bas/primer-design`:
+     - global layout and structure → HTML + project CSS,
+     - interactive controls (buttons, inputs, status labels, spinners) → `@primer/react`.
 
-2. **Surface Primer minimale dans le smoke test**  
-   - Le but du smoke test n’est pas de tester Primer, mais de vérifier que **l’app et son environnement** démarrent sans crash.  
-   - On évite de laisser les imports CSS internes d’`@primer/react` faire échouer Vitest.
+2. **Minimal Primer surface in the smoke test**
+   - The smoke test's goal is not to test Primer, but to verify that **the app and its environment** start without crashing.
+   - Avoid letting `@primer/react` internal CSS imports cause Vitest to fail.
 
-3. **Réutiliser `frontend-runtime-sanity`**  
-   - Garder la structure de test demandée par ce skill (Vitest + `test:smoke`),  
-   - appliquer sa section “UI libraries that import CSS”, spécialisée ici pour Primer.
+3. **Reuse `frontend-runtime-sanity`**
+   - Keep the test structure required by that skill (Vitest + `test:smoke`),
+   - apply its "UI libraries that import CSS" guidance, specialized here for Primer.
 
 ---
 
-## Pattern A – Smoke test indépendant de Primer (recommandé)
+## Pattern A — Primer-independent smoke test (recommended)
 
-1. **Smoke test minimal**  
-   - Créer un fichier de test (par ex. `src/App.test.tsx`) qui :
-     - n’importe **pas** directement `@primer/react`,  
-     - peut utiliser un composant factice (mock d’app) pour vérifier que Vitest + JSDOM + Testing Library sont bien câblés.
+1. **Minimal smoke test**
+   - Create a test file (e.g. `src/App.test.tsx`) that:
+     - does **not** import `@primer/react` directly,
+     - uses a mock component to verify that Vitest + JSDOM + Testing Library are wired correctly.
 
-   Exemple :
+   Example:
    ```ts
    import { render } from '@testing-library/react'
    import { describe, it } from 'vitest'
 
-   const MockApp = () => <div>test-seed</div>
+   const MockApp = () => <div>app</div>
 
    describe('smoke', () => {
      it('test runner is configured', () => {
@@ -70,57 +70,55 @@ Out of scope:
    })
    ```
 
-2. **Runtime réel**  
-   - L’app réelle (entrypoint, features, theming, MSW) continue d’utiliser Primer librement.  
-   - Le build Vite (`npm run build`) reste la validation forte que l’ensemble compile (y compris Primer).
+2. **Real runtime**
+   - The real app (entrypoint, features, theming, MSW) continues to use Primer freely.
+   - The build command (`npm run build`) remains the strong validation that everything compiles, including Primer.
 
-3. **Quand appliquer ce pattern**  
-   - Dès qu’un import CSS de Primer (`dist/*.css`) provoque des erreurs du type `Unknown file extension ".css"` dans Vitest,  
-   - ou quand un mock complet d’`@primer/react` serait trop fragile à maintenir.
-
----
-
-## Pattern B – Mock ciblé de Primer dans Vitest (option avancée)
-
-Si l’on souhaite que le smoke test monte le vrai `App` qui utilise Primer, appliquer :
-
-1. Dans `src/test/setup.ts` :  
-   - **Mocker `@primer/react`** avec `vi.mock('@primer/react', () => ({ ... }))` pour les composants utilisés par le smoke test (Button, TextInput, etc.),  
-   - retourner des wrappers HTML simples qui n’importent aucun CSS Primer.
-
-2. Règles essentielles :
-   - La factory de `vi.mock` doit être **synchrone** (pas d’`async` ni d’import dynamique),  
-   - elle doit retourner seulement les exports nécessaires au code testé,  
-   - elle ne doit pas ré-importer le module réel (sinon les CSS Primer reviennent dans le pipeline).
-
-3. Ce pattern est plus puissant mais aussi plus fragile, à réserver aux cas où Pattern A ne suffit pas.
+3. **When to apply this pattern**
+   - When a Primer CSS import (`dist/*.css`) causes `Unknown file extension ".css"` errors in Vitest,
+   - or when a full mock of `@primer/react` would be too fragile to maintain.
 
 ---
 
-## Process dans ce template
+## Pattern B — Targeted Primer mock in Vitest (advanced option)
 
-1. **Suivre `frontend-runtime-sanity`**  
-   - Installer Vitest + Testing Library,  
-   - configurer `vite.config.ts` (`test.environment = 'jsdom'`, `globals = true`, `setupFiles`),  
-   - ajouter les scripts `test` et `test:smoke`.
+Use this when the smoke test needs to mount the real `App` that uses Primer:
 
-2. **Choisir le pattern de smoke test**  
-   - Par défaut : Pattern A (smoke test indépendant de Primer).  
-   - Pattern B uniquement si une User Story demande explicitement un smoke sur le vrai `App` Primer.
+1. In `src/test/setup.ts`:
+   - **Mock `@primer/react`** with `vi.mock('@primer/react', () => ({ ... }))` for the components used by the smoke test (Button, TextInput, etc.),
+   - return simple HTML wrappers that import no Primer CSS.
 
-3. **Toujours exécuter** :
-   - `cd frontend && npm run build`  
-   - `cd frontend && npm run test:smoke`  
-   après les changements significatifs, comme exigé par `AGENTS.md` et `frontend-runtime-sanity`.
+2. Essential rules:
+   - The `vi.mock` factory must be **synchronous** (no `async` or dynamic imports),
+   - it must return only the exports needed by the tested code,
+   - it must not re-import the real module (otherwise Primer CSS re-enters the pipeline).
+
+3. This pattern is more powerful but also more fragile — reserve it for cases where Pattern A is not sufficient.
+
+---
+
+## Process
+
+1. **Follow `frontend-runtime-sanity`**
+   - Install Vitest + Testing Library,
+   - configure `vite.config.ts` (`test.environment = 'jsdom'`, `globals = true`, `setupFiles`),
+   - add the `test` and `test:smoke` scripts.
+
+2. **Choose the smoke test pattern**
+   - Default: Pattern A (Primer-independent smoke test).
+   - Pattern B only if a User Story explicitly requires a smoke test on the real Primer `App`.
+
+3. **Always run** after significant changes, as required by `AGENTS.md` and `frontend-runtime-sanity`:
+   - build command
+   - `test:smoke` command
 
 ---
 
 ## Rules
 
-- Ne pas multiplier les hacks dans la config Vite/Vitest : les adaptations Primer doivent vivre dans ce skill et/ou `src/test/setup.ts`.  
-- Ne pas bloquer une itération parce qu’un design system importe du CSS : adapter le smoke test (Pattern A) ou mocker Primer (Pattern B).  
-- Utiliser conjointement :
-  - `bas/primer-design` pour la conception UI,  
-  - `bagustris/primer-style` pour le polish,  
-  - `primer-vitest-runtime` pour garder les tests runtime simples et robustes.
-
+- Do not accumulate hacks in Vite/Vitest config: Primer adaptations must live in this skill and/or `src/test/setup.ts`.
+- Do not block an iteration because a design system imports CSS: adapt the smoke test (Pattern A) or mock Primer (Pattern B).
+- Use in conjunction with:
+  - `bas/primer-design` for UI design,
+  - `bagustris/primer-style` for style consistency,
+  - `primer-vitest-runtime` to keep runtime tests simple and robust.

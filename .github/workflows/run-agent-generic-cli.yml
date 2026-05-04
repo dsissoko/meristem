@@ -1,0 +1,158 @@
+name: run-agent-generic-cli
+
+on:
+  workflow_call:
+    inputs:
+      role:
+        type: string
+        required: true
+      run_id:
+        type: string
+        required: true
+      issue_number:
+        type: string
+        required: true
+      comment_id:
+        type: string
+        required: true
+      mode:
+        type: string
+        required: true
+    secrets:
+      OPENCODE_API_KEY:
+        required: true
+      SCRUM_PROJECT_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download prompt artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prompt-${{ inputs.run_id }}
+
+      - name: Read prompt into env
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          PROMPT_CONTENT=$(cat "prompt-${RUN_ID}.txt")
+          rm -f "prompt-${RUN_ID}.txt"
+          echo "PROMPT_CONTENT<<EOF_MARKER" >> "$GITHUB_ENV"
+          echo "$PROMPT_CONTENT" >> "$GITHUB_ENV"
+          echo "EOF_MARKER" >> "$GITHUB_ENV"
+          # Also write to file for CLI
+          echo "$PROMPT_CONTENT" > "$RUNNER_TEMP/prompt.txt"
+
+      # ---------------------------------------------------------------------------
+      # CLI opencode générique
+      # Fix workflow_call : construire MOCK_EVENT en bash depuis les inputs
+      # disponibles pour bypasser le payload workflow_call.
+      # ---------------------------------------------------------------------------
+      - name: Install opencode CLI
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Add opencode to PATH
+        run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "opencode-agent"
+          git config --global user.email "opencode-agent@users.noreply.github.com"
+
+      - name: Generate opencode.json from agents/config.yml
+        id: config
+        run: |
+          mkdir -p .opencode
+          yq -o=json '.agent_config.opencode' agents/config.yml > .opencode/opencode.json
+          echo "Generated .opencode/opencode.json:"
+          cat .opencode/opencode.json
+          echo "model=$(yq '.agent_config.opencode.model' agents/config.yml)" >> "$GITHUB_OUTPUT"
+
+      - name: Run OpenCode CLI
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USE_GITHUB_TOKEN: "true"
+          MODEL: ${{ steps.config.outputs.model }}
+          SHARE: "false"
+          MOCK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          COMMENT_ID: ${{ inputs.comment_id }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.event.comment.user.login }}
+        run: |
+          REPO_OWNER="${REPO%%/*}"
+          REPO_NAME="${REPO##*/}"
+          PROMPT_CONTENT=$(cat "$RUNNER_TEMP/prompt.txt")
+          export PROMPT="$PROMPT_CONTENT"
+          # Build MOCK_EVENT using jq for safe JSON construction
+          # Le body doit contenir /oc + le prompt complet pour que opencode extraie le prompt
+          # L'actor doit être le vrai login GitHub pour passer assertPermissions()
+          export MOCK_EVENT=$(jq -cn \
+            --arg owner "$REPO_OWNER" \
+            --arg repo "$REPO_NAME" \
+            --argjson number "$ISSUE_NUMBER" \
+            --arg body "/oc ${PROMPT_CONTENT}" \
+            --arg actor "$ACTOR" \
+            --argjson comment_id "$COMMENT_ID" \
+            '{eventName:"issue_comment",repo:{owner:$owner,repo:$repo},actor:$actor,payload:{issue:{number:$number,title:"",pull_request:null},comment:{id:$comment_id,body:$body}}}')
+          echo "DEBUG MOCK_EVENT=${MOCK_EVENT}"
+          opencode github run --event "$MOCK_EVENT" --token "$MOCK_TOKEN"
+
+      - name: Show opencode log on failure
+        if: failure()
+        run: |
+          LOG_FILE=$(ls -t /home/runner/.local/share/opencode/log/*.log 2>/dev/null | head -1)
+          if [ -f "$LOG_FILE" ]; then
+            echo "=== OPENCODE LOG ==="
+            cat "$LOG_FILE"
+          else
+            echo "No log file found"
+          fi
+
+      - name: Cleanup opencode.json
+        if: always()
+        run: rm -f .opencode/opencode.json
+
+      - name: Handle manifest artifact (if present)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.SCRUM_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          RUN_ID: ${{ inputs.run_id }}
+          MANIFEST_FILE: manifest-${{ inputs.run_id }}.json
+        run: |
+          if [ ! -f "$MANIFEST_FILE" ]; then
+            echo "No manifest found — skipping."
+            exit 0
+          fi
+
+          echo "=== manifest handler: start ==="
+          TYPE=$(jq -r '.type' "$MANIFEST_FILE")
+          echo "Manifest type: $TYPE"
+
+          if [ "$TYPE" = "scrum-init" ]; then
+            chmod +x scripts/scrum-init-execute.sh 2>/dev/null || true
+            if [ -f scripts/scrum-init-execute.sh ]; then
+              bash scripts/scrum-init-execute.sh
+            else
+              echo "scrum-init-execute.sh not found — skipping."
+            fi
+          else
+            echo "Unknown manifest type: $TYPE — skipping."
+          fi
+
+          echo "=== manifest handler: done ==="
+          rm -f "$MANIFEST_FILE"

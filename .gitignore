@@ -1,6 +1,12 @@
 # Local agent runtime state (Codex CLI, logs, sessions, cache)
 codex/
 tmp/
+.opencode/*
+!.opencode/skills/
+
+# Agent runtime ephemeral files
+prompt-*.txt
+manifest-*.json
 
 # Codex CLI project marker (can be file or directory)
 .codex
@@ -9,9 +15,15 @@ tmp/
 # Agent migration/personality files
 .personality_migration
 
-# Generated spec site (artifact, regenerated from docs/specs/)
-docs/site/
+# Frontend dependencies and build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.npm-cache/
+frontend/.vite/
 
-# docsify server PID file and output (created when agent launches preview server)
-docs/.docsify.pid
-docs/.docsify-serve.out
+# Test results (agent dialogue recordings)
+scripts/results/
+docs/node_modules/
+docs/specs/.vitepress/dist/
+docs/specs/.vitepress/cache/
+docs/site/

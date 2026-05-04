@@ -1,0 +1,424 @@
+name: agent-dispatch
+
+on:
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Job 0 — warn-on-edited
+  # Posts a warning if an edited comment contains an invocation pattern.
+  # Runs only on edited events, independently of the main pipeline.
+  # ---------------------------------------------------------------------------
+  warn-on-edited:
+    if: github.event.action == 'edited' && github.event.comment.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Post warning if invocation pattern detected
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          ROLES=$(awk '/^roles:/{found=1; next} found && /^[^ ]/{exit} found && /^ *- /{sub(/^ *- /,""); printf "%s|",$0}' agents/config.yml | sed 's/|$//')
+          if printf '%s' "$COMMENT_BODY" | grep -qE "(^|\s)/(${ROLES})(\s|$)" 2>/dev/null; then
+            if [ "$EVENT_NAME" = "issue_comment" ]; then
+              NUMBER="$ISSUE_NUMBER"
+            else
+              NUMBER="$PR_NUMBER"
+            fi
+            gh api "repos/$REPO/issues/$NUMBER/comments" \
+              --method POST \
+              --field body="⚠️ L'édition d'un commentaire ne peut pas redéclencher le process. Veuillez créer un nouveau commentaire."
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Job 1 — filter
+  # Reads agents/config.yml, detects the invoked role, resolves aliases,
+  # detects autonomous mode. Runs only on created events.
+  # ---------------------------------------------------------------------------
+  filter:
+    if: github.event.action == 'created'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      agent: ${{ steps.detect.outputs.agent }}
+      mode: ${{ steps.detect.outputs.mode }}
+      issue_number: ${{ steps.detect.outputs.issue_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect agent and mode
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          IS_BOT: ${{ github.event.comment.user.type == 'Bot' }}
+        run: |
+          echo "=== filter: start ==="
+
+          # Resolve issue/PR number
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            NUMBER="$ISSUE_NUMBER"
+          else
+            NUMBER="$PR_NUMBER"
+          fi
+          echo "issue_number=${NUMBER}" >> "$GITHUB_OUTPUT"
+
+          # Read config
+          ROLES=$(awk '/^roles:/{found=1; next} found && /^[^ ]/{exit} found && /^ *- /{sub(/^ *- /,""); printf "%s|",$0}' agents/config.yml | sed 's/|$//')
+          AUTONOMOUS=$(grep '^autonomous_mode:' agents/config.yml | awk '{print $2}')
+
+          echo "Roles: $ROLES"
+          echo "Autonomous: $AUTONOMOUS"
+          echo "Is bot: $IS_BOT"
+
+          # Block bots unless autonomous_mode is true
+          if [ "$IS_BOT" = "true" ] && [ "$AUTONOMOUS" != "true" ]; then
+            echo "Bot comment ignored — autonomous_mode is not enabled."
+            echo "agent=none" >> "$GITHUB_OUTPUT"
+            echo "mode=classic" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Detect invocation pattern
+          DETECTED=""
+          for ROLE in $(echo "$ROLES" | tr '|' '\n'); do
+            if printf '%s' "$COMMENT_BODY" | grep -qE "(^|\s)/${ROLE}(\s|$)" 2>/dev/null; then
+              DETECTED="$ROLE"
+              break
+            fi
+          done
+
+          # Resolve aliases if no direct match
+          if [ -z "$DETECTED" ]; then
+            # Extract aliases section
+            ALIAS_SECTION=$(awk '/^aliases:/,/^[^ ]/' agents/config.yml | grep ':' | grep -v '^aliases:' | grep -v '^roles:')
+            while IFS= read -r line; do
+              ALIAS=$(echo "$line" | cut -d: -f1 | tr -d ' ')
+              TARGET=$(echo "$line" | cut -d: -f2 | tr -d ' ')
+              if printf '%s' "$COMMENT_BODY" | grep -qE "(^|\s)/${ALIAS}(\s|$)" 2>/dev/null; then
+                DETECTED="$TARGET"
+                break
+              fi
+            done <<< "$ALIAS_SECTION"
+          fi
+
+          # Unknown pattern
+          if [ -z "$DETECTED" ]; then
+            VALID_PATTERNS=$(echo "$ROLES" | tr '|' '\n' | sed 's/^/\//' | tr '\n' ' ')
+            gh api "repos/$REPO/issues/$NUMBER/comments" \
+              --method POST \
+              --field body="❌ Pattern d'invocation non reconnu. Patterns valides : ${VALID_PATTERNS}"
+            echo "agent=none" >> "$GITHUB_OUTPUT"
+            echo "mode=classic" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Detected agent: $DETECTED"
+          echo "agent=${DETECTED}" >> "$GITHUB_OUTPUT"
+
+          # Autonomous mode
+          if [ "$AUTONOMOUS" = "true" ]; then
+            echo "mode=auto" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=classic" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "=== filter: done ==="
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — loop-guard
+  # Detects stale agent loops by comparing the last N invocations.
+  # ---------------------------------------------------------------------------
+  loop-guard:
+    needs: filter
+    if: needs.filter.result == 'success' && needs.filter.outputs.agent != 'none' && needs.filter.outputs.agent != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      safe: ${{ steps.check-loop.outputs.safe }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for agent loop
+        id: check-loop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ needs.filter.outputs.issue_number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          echo "=== loop-guard: start ==="
+
+          LOOP_MAX=$(grep '^loop_max_invocations:' agents/config.yml | awk '{print $2}')
+          LOOP_THRESHOLD=$(grep '^loop_diff_threshold:' agents/config.yml | awk '{print $2}')
+          ROLES=$(awk '/^roles:/{found=1; next} found && /^[^ ]/{exit} found && /^ *- /{sub(/^ *- /,""); printf "%s|",$0}' agents/config.yml | sed 's/|$//')
+
+          NUMBER="${ISSUE_NUMBER}"
+          echo "Checking loop on #$NUMBER (max=$LOOP_MAX, threshold=$LOOP_THRESHOLD%)"
+
+          # Fetch last comments containing an invocation pattern
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            COMMENTS_ENDPOINT="repos/$REPO/issues/$NUMBER/comments"
+          else
+            COMMENTS_ENDPOINT="repos/$REPO/pulls/$NUMBER/comments"
+          fi
+
+          INVOCATIONS=$(gh api "$COMMENTS_ENDPOINT" \
+            | jq --arg pattern "/(${ROLES})" '[
+                .[]
+                | select(.body | test($pattern))
+                | { author: .user.login, body: .body, created_at: .created_at }
+              ]
+              | sort_by(.created_at)
+              | .[-'"$LOOP_MAX"':]')
+
+          COUNT=$(echo "$INVOCATIONS" | jq 'length')
+          echo "Recent invocations: $COUNT"
+
+          if [ "$COUNT" -lt "$LOOP_MAX" ]; then
+            echo "Not enough invocations — safe."
+            echo "safe=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Extract text after invocation pattern for comparison
+          extract_after() {
+            echo "$1" | sed -E "s#.*(/(${ROLES}))(.*)#\3#"
+          }
+
+          CURRENT_AFTER=$(extract_after "$COMMENT_BODY")
+          PREV_BODY=$(echo "$INVOCATIONS" | jq -r '.[-2].body')
+          PREV_AFTER=$(extract_after "$PREV_BODY")
+
+          CURRENT_LEN=${#CURRENT_AFTER}
+          PREV_LEN=${#PREV_AFTER}
+
+          if [ "$CURRENT_LEN" -eq 0 ] || [ "$PREV_LEN" -eq 0 ]; then
+            echo "Empty invocation text — safe."
+            echo "safe=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          COMMON=$(diff <(echo "$PREV_AFTER" | fold -w1) <(echo "$CURRENT_AFTER" | fold -w1) \
+            | grep -c '^>' || true)
+          NEW_RATIO=$(( COMMON * 100 / CURRENT_LEN ))
+          echo "New content ratio: $NEW_RATIO% (threshold: $LOOP_THRESHOLD%)"
+
+          if [ "$NEW_RATIO" -lt "$LOOP_THRESHOLD" ]; then
+            gh api "repos/$REPO/issues/$NUMBER/comments" \
+              --method POST \
+              --field body="⚠️ Agent loop detected — les $LOOP_MAX dernières invocations sont redondantes (moins de $LOOP_THRESHOLD% de nouveau contenu). Un humain doit reprendre la conversation."
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "safe=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "=== loop-guard: done ==="
+
+  # ---------------------------------------------------------------------------
+  # Job 3 — prepare-context
+  # Builds the plain text prompt and uploads it as an ephemeral artifact.
+  # ---------------------------------------------------------------------------
+  prepare-context:
+    needs: [filter, loop-guard]
+    if: needs.loop-guard.outputs.safe == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      run_id: ${{ steps.build-prompt.outputs.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build prompt and upload artifact
+        id: build-prompt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ needs.filter.outputs.issue_number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
+          AGENT: ${{ needs.filter.outputs.agent }}
+          MODE: ${{ needs.filter.outputs.mode }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "=== prepare-context: start ==="
+
+          MAX_COMMENTS=$(grep '^max_comments:' agents/config.yml | awk '{print $2}')
+          RUN_ID="${{ github.run_id }}"
+          NUMBER="${ISSUE_NUMBER}"
+
+          PROMPT_FILE="prompt-${RUN_ID}.txt"
+
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            # Fetch issue metadata
+            METADATA=$(gh api "repos/$REPO/issues/$NUMBER" \
+              | jq -r '"Titre : \(.title)\nÉtat : \(.state)\nAuteur : \(.user.login)\nLabels : \([.labels[].name] | join(", "))\n\n\(.body // "")"')
+
+            # Fetch history
+            HISTORY=$(gh api "repos/$REPO/issues/$NUMBER/comments" \
+              | jq --arg cid "$COMMENT_ID" --argjson max "$MAX_COMMENTS" \
+                '[.[] | select(.id | tostring != $cid)] | sort_by(.created_at) | .[-$max:] | .[] | "[\(.created_at)] \(.user.login): \(.body)"' \
+              | tr -d '"' | sed 's/\\n/\n/g')
+
+            # Write prompt safely using printf
+            {
+              printf 'Tu es l'\''agent %s.\n' "${AGENT}"
+              printf 'Charge agents/%s/profile.md et suis ses instructions.\n' "${AGENT}"
+              printf 'Mode : %s\n' "${MODE}"
+              if [ "$MODE" = "auto" ]; then
+                printf 'Charge le set : autonomous.\n'
+              fi
+              printf '\n'
+              printf '## Instruction active\n'
+              printf 'Auteur : %s\n' "${COMMENT_AUTHOR}"
+              printf 'Date   : %s\n' "${COMMENT_CREATED_AT}"
+              printf '%s\n\n' "${COMMENT_BODY}"
+              printf '## Métadonnées\n'
+              printf '%s\n\n' "${METADATA}"
+              printf '## Historique (%s derniers commentaires)\n' "${MAX_COMMENTS}"
+              printf '%s\n' "${HISTORY}"
+            } > "$PROMPT_FILE"
+
+          else
+            # pull_request_review_comment
+            PR_META=$(gh api "repos/$REPO/pulls/$PR_NUMBER" \
+              | jq -r '"Titre : \(.title)\nÉtat : \(.state)\nBranches : \(.head.ref) → \(.base.ref)\n\n\(.body // "")"')
+
+            INLINE_CONTEXT=$(gh api "repos/$REPO/pulls/comments/$COMMENT_ID" \
+              | jq -r '"Fichier     : \(.path)\nLigne       : \(.line)\nDiff        :\n\(.diff_hunk)\nreply_to_id : \(.id)"')
+
+            HISTORY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+              | jq --arg cid "$COMMENT_ID" --argjson max "$MAX_COMMENTS" \
+                '[.[] | select(.id | tostring != $cid)] | sort_by(.created_at) | .[-$max:] | .[] | "[\(.created_at)] \(.user.login) sur \(.path):\(.line): \(.body)"' \
+              | tr -d '"' | sed 's/\\n/\n/g')
+
+            # Write prompt safely using printf
+            {
+              printf 'Tu es l'\''agent %s.\n' "${AGENT}"
+              printf 'Charge agents/%s/profile.md et suis ses instructions.\n' "${AGENT}"
+              printf 'Mode : %s\n' "${MODE}"
+              if [ "$MODE" = "auto" ]; then
+                printf 'Charge le set : autonomous.\n'
+              fi
+              printf '\n'
+              printf '## Instruction active\n'
+              printf 'Auteur : %s\n' "${COMMENT_AUTHOR}"
+              printf 'Date   : %s\n' "${COMMENT_CREATED_AT}"
+              printf '%s\n\n' "${COMMENT_BODY}"
+              printf '## Contexte code\n'
+              printf '%s\n\n' "${INLINE_CONTEXT}"
+              printf '## Métadonnées PR\n'
+              printf '%s\n\n' "${PR_META}"
+              printf '## Historique (%s derniers commentaires inline)\n' "${MAX_COMMENTS}"
+              printf '%s\n' "${HISTORY}"
+            } > "$PROMPT_FILE"
+          fi
+
+          echo "Prompt file built: $PROMPT_FILE ($(wc -c < "$PROMPT_FILE") bytes)"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload prompt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt-${{ github.run_id }}
+          path: prompt-${{ github.run_id }}.txt
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Job 4-pre — resolve-runner
+  # Lit runner_mode depuis agents/config.yml et l'expose en output.
+  # Pour switcher : modifier runner_mode dans agents/config.yml.
+  # ---------------------------------------------------------------------------
+  resolve-runner:
+    needs: [filter, prepare-context]
+    if: needs.prepare-context.outputs.run_id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      runner_mode: ${{ steps.read.outputs.runner_mode }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Read runner mode from config
+        id: read
+        run: echo "runner_mode=$(grep '^runner_mode:' agents/config.yml | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Job 4a — dispatch-anomalyco
+  # Calls run-agent-anomalyco.yml (action native anomalyco/opencode/github).
+  # Actif si runner_mode=anomalyco dans agents/config.yml.
+  # ---------------------------------------------------------------------------
+  dispatch-anomalyco:
+    needs: [filter, prepare-context, resolve-runner]
+    if: needs.resolve-runner.outputs.runner_mode == 'anomalyco'
+    uses: ./.github/workflows/run-agent-anomalyco.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    with:
+      role: ${{ needs.filter.outputs.agent }}
+      run_id: ${{ needs.prepare-context.outputs.run_id }}
+      issue_number: ${{ needs.filter.outputs.issue_number }}
+      comment_id: ${{ github.event.comment.id }}
+      mode: ${{ needs.filter.outputs.mode }}
+
+  # ---------------------------------------------------------------------------
+  # Job 4b — dispatch-generic-cli
+  # Calls run-agent-generic-cli.yml (CLI opencode générique).
+  # Actif si runner_mode=generic-cli dans agents/config.yml.
+  # ---------------------------------------------------------------------------
+  dispatch-generic-cli:
+    needs: [filter, prepare-context, resolve-runner]
+    if: needs.resolve-runner.outputs.runner_mode == 'generic-cli'
+    uses: ./.github/workflows/run-agent-generic-cli.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    with:
+      role: ${{ needs.filter.outputs.agent }}
+      run_id: ${{ needs.prepare-context.outputs.run_id }}
+      issue_number: ${{ needs.filter.outputs.issue_number }}
+      comment_id: ${{ github.event.comment.id }}
+      mode: ${{ needs.filter.outputs.mode }}

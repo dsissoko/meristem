@@ -1,14 +1,14 @@
 ---
 name: msw-vite-setup
-description: Canonical MSW setup for the React + Vite frontend in this repo (worker script, Vite integration, and bootstrap rules).
+description: Canonical MSW setup for React + Vite frontends (worker script, Vite integration, and bootstrap rules).
 ---
 
-# MSW + Vite Setup (local)
+# MSW + Vite Setup
 
 ## Objective
 
 Provide a **repeatable, zero-surprise setup** for Mock Service Worker
-with the React + Vite frontend in this template, so that:
+with a React + Vite frontend, so that:
 
 - `/api/...` calls are consistently handled by MSW in **dev** and
   **preview/build** modes, and  
@@ -88,7 +88,7 @@ async function bootstrap() {
 This ensures that:
 
 - `npm run dev` and `npm run preview` both use MSW,  
-- `/api/todos` and autres endpoints sont systématiquement interceptés,
+- `/api/...` endpoints are consistently intercepted by MSW,
   and  
 - `fetch(...).json()` calls receive JSON from handlers instead of the
   HTML shell.
@@ -98,8 +98,7 @@ This ensures that:
 ## Step 3 – Node/test setup reminder
 
 For tests (Vitest, JSDOM), use `setupServer` from `msw/node` in a
-dedicated `server.ts` plus a test setup file, as already done in this
-repo:
+dedicated `server.ts` plus a test setup file:
 
 - `frontend/src/mocks/server.ts` – defines `server = setupServer(...handlers)`
 - `frontend/src/test/setup.ts` – calls:
