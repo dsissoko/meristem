@@ -46,7 +46,8 @@ Configure the required secrets in GitHub Settings → Secrets → Actions:
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `OPENCODE_API_KEY` | ✅ | OpenCode API key — [opencode.ai/auth](https://opencode.ai/auth) |
+| `OPENCODE_API_KEY` | ✅ (runner `anomalyco`) | OpenCode API key — [opencode.ai/auth](https://opencode.ai/auth) |
+| `CLI_API_KEY` | ✅ (runner `generic-cli`) | API key for the active CLI — value depends on `cli_name` in `agents/config.yml` |
 | `SCRUM_PROJECT_TOKEN` | ⬜ | GitHub PAT with `project` scope — for Scrum board initialization |
 
 Open an issue and invoke an agent:
