@@ -50,6 +50,13 @@ Configure the required secrets in GitHub Settings → Secrets → Actions:
 | `CLI_API_KEY` | ✅ (runner `generic-cli`) | API key for the active CLI — value depends on `cli_name` in `agents/config.yml` |
 | `SCRUM_PROJECT_TOKEN` | ⬜ | GitHub PAT with `project` scope — for Scrum board initialization |
 
+Enable GitHub Actions write permissions in GitHub Settings → Actions → General → Workflow permissions:
+
+- Select **Read and write permissions**
+- Check **Allow GitHub Actions to create and approve pull requests**
+
+This is required for agents to create branches, commits, and pull requests.
+
 Open an issue and invoke an agent:
 
 ```
