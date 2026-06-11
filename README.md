@@ -2,6 +2,10 @@
   <img src="./meristem-image.png" alt="Meristem logo" width="450" />
 </p>
 
+> 😄 **We had a lot of fun here — but this repository is now archived.** Development has moved to [oneticket-core](https://github.com/dsissoko/oneticket-core), which continues and expands on everything built here.
+
+---
+
 # Meristem – Knowledge-first Agentic App Template
 
 Meristem is a minimal, knowledge-driven template for building applications with AI agents.
